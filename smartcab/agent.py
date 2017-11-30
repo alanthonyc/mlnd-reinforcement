@@ -4,6 +4,8 @@ from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
+VERBOSE = True
+
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
         This is the object you will be modifying. """ 
@@ -102,11 +104,11 @@ class LearningAgent(Agent):
         #   Then, for each action available, set the initial Q-value to 0.0
         state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
         if state_key not in self.Q:
-            print "creating key:"
+            if VERBOSE:
+                print "Agent: Creating State: %s" % state_key
             self.Q[state_key] = dict()
-        else:
-            print "key found:"
-        print state_key
+        elif VERBOSE:
+            print "Agent: State Found - %s" % state_key
         return
 
 
@@ -173,7 +175,7 @@ def run():
     #   verbose     - set to True to display additional output from the simulation
     #   num_dummies - discrete number of dummy agents in the environment, default is 100
     #   grid_size   - discrete number of intersections (columns, rows), default is (8, 6)
-    env = Environment()
+    env = Environment(verbose=VERBOSE)
     
     ##############
     # Create the driving agent
