@@ -104,9 +104,13 @@ class LearningAgent(Agent):
         #   Then, for each action available, set the initial Q-value to 0.0
         state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
         if state_key not in self.Q:
+            self.Q[state_key] = dict()
+            self.Q[state_key]['forward'] = 0.0
+            self.Q[state_key]['left'] = 0.0
+            self.Q[state_key]['right'] = 0.0
+            self.Q[state_key][None] = 0.0
             if VERBOSE:
                 print "Agent: Creating State: %s" % state_key
-            self.Q[state_key] = dict()
         elif VERBOSE:
             print "Agent: State Found - %s" % state_key
         return
@@ -147,6 +151,13 @@ class LearningAgent(Agent):
         ###########
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
+        state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
+
+        print "Learning Action: %s" % action
+        print "Learning State: %s" % state_key
+        print "Learning Reward: %f" % reward
+
+        self.Q[state_key][action] = reward
 
         return
 
@@ -161,7 +172,6 @@ class LearningAgent(Agent):
         action = self.choose_action(state)  # Choose an action
         reward = self.env.act(self, action) # Receive a reward
         self.learn(state, action, reward)   # Q-learn
-
         return
         
 
