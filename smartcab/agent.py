@@ -1,10 +1,12 @@
 import random
 import math
+import operator
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
 
-VERBOSE = True
+VERBOSE = False
+DEBUG = True
 
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
@@ -86,9 +88,9 @@ class LearningAgent(Agent):
         # TODO  4
         ###########
         # Calculate the maximum Q-value of all actions for a given state
-
-        maxQ = None
-
+        state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
+        maxQ_index = max(self.Q[state_key].iteritems(), key=operator.itemgetter(1))[0]
+        maxQ = self.Q[state_key][maxQ_index] 
         return maxQ 
 
 
@@ -109,10 +111,10 @@ class LearningAgent(Agent):
             self.Q[state_key]['left'] = 0.0
             self.Q[state_key]['right'] = 0.0
             self.Q[state_key][None] = 0.0
-            if VERBOSE:
-                print "Agent: Creating State: %s" % state_key
-        elif VERBOSE:
-            print "Agent: State Found - %s" % state_key
+            if DEBUG:
+                print "Agent: Creating State"
+        elif DEBUG:
+            print "Agent: State Found"
         return
 
 
@@ -156,8 +158,13 @@ class LearningAgent(Agent):
         print "Learning Action: %s" % action
         print "Learning State: %s" % state_key
         print "Learning Reward: %f" % reward
-
-        self.Q[state_key][action] = reward
+        maxQ = self.get_maxQ(state)
+        print "Max Q for action: %s" % maxQ
+        stateQ = self.Q[state_key][action]
+        print "Old Q for state: %f" % stateQ
+        newQ = (reward * self.alpha) + (stateQ * (1 - self.alpha))
+        self.Q[state_key][action] = newQ
+        print "New Q for state: %f" % newQ
 
         return
 
@@ -193,7 +200,7 @@ def run():
     #   learning   - set to True to force the driving agent to use Q-learning
     #    * epsilon - continuous value for the exploration factor, default is 1
     #    * alpha   - continuous value for the learning rate, default is 0.5
-    agent = env.create_agent(LearningAgent)
+    agent = env.create_agent(LearningAgent, learning=True)
     
     ##############
     # Follow the driving agent
@@ -208,7 +215,7 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env, update_delay=0.01, log_metrics=True)
+    sim = Simulator(env, update_delay=0.001, log_metrics=True)
     
     ##############
     # Run the simulator
