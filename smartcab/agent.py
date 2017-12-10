@@ -6,7 +6,7 @@ from planner import RoutePlanner
 from simulator import Simulator
 
 VERBOSE = False
-DEBUG = True
+DEBUG = False
 
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
@@ -74,8 +74,7 @@ class LearningAgent(Agent):
         # With the hand-engineered features, this learning process gets entirely negated.
         
         # Set 'state' as a tuple of relevant data for the agent        
-        state = (waypoint, inputs['oncoming'], inputs['left'], inputs['right'])
-
+        state = (waypoint, inputs['oncoming'], inputs['left'], inputs['light'])
         return state
 
 
@@ -154,17 +153,29 @@ class LearningAgent(Agent):
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
         state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
-
-        print "Learning Action: %s" % action
-        print "Learning State: %s" % state_key
-        print "Learning Reward: %f" % reward
         maxQ = self.get_maxQ(state)
-        print "Max Q for action: %s" % maxQ
         stateQ = self.Q[state_key][action]
-        print "Old Q for state: %f" % stateQ
         newQ = (reward * self.alpha) + (stateQ * (1 - self.alpha))
         self.Q[state_key][action] = newQ
-        print "New Q for state: %f" % newQ
+
+        if DEBUG:
+            print "===================="
+            print "Learning Function:"
+            print "Waypoint: %s" % state[0]
+            print "----"
+            print "          %s" % state[1]
+            print "          __"
+            print "    %s |" % state[2]
+            print "          __"
+            print "          %s" % state[3]
+            print "----"
+            print "Action: %s" % action
+            print "===================="
+            print "Learning Reward: %f" % reward
+            print "Max Q for action: %s" % maxQ
+            print "Old Q for state: %f" % stateQ
+            print "New Q for state/action: %f" % newQ
+            print "===================="
 
         return
 
