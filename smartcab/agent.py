@@ -6,7 +6,7 @@ from planner import RoutePlanner
 from simulator import Simulator
 
 VERBOSE = False
-DEBUG = False
+DEBUG = True
 
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
@@ -77,6 +77,19 @@ class LearningAgent(Agent):
         state = (waypoint, inputs['oncoming'], inputs['left'], inputs['light'])
         return state
 
+    def state_key(self, state):
+        """
+        Return state key (string format) for a given state.
+        """
+        return state[0], state[1], state[2], state[3]
+
+    def maxQ_index(self, state):
+        """
+        Return index of action with largest Q for a given state.
+        """
+        key = self.state_key(state)
+        return max(self.Q[key].iteritems(), key=operator.itemgetter(1))[0]
+
 
     def get_maxQ(self, state):
         """ The get_max_Q function is called when the agent is asked to find the
@@ -87,9 +100,9 @@ class LearningAgent(Agent):
         # TODO  4
         ###########
         # Calculate the maximum Q-value of all actions for a given state
-        state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
-        maxQ_index = max(self.Q[state_key].iteritems(), key=operator.itemgetter(1))[0]
-        maxQ = self.Q[state_key][maxQ_index] 
+        key = self.state_key(state)
+        maxQ_index = self.maxQ_index(state)
+        maxQ = self.Q[key][maxQ_index] 
         return maxQ 
 
 
@@ -103,17 +116,18 @@ class LearningAgent(Agent):
         # When learning, check if the 'state' is not in the Q-table
         # If it is not, create a new dictionary for that state
         #   Then, for each action available, set the initial Q-value to 0.0
-        state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
-        if state_key not in self.Q:
-            self.Q[state_key] = dict()
-            self.Q[state_key]['forward'] = 0.0
-            self.Q[state_key]['left'] = 0.0
-            self.Q[state_key]['right'] = 0.0
-            self.Q[state_key][None] = 0.0
-            if DEBUG:
-                print "Agent: Creating State"
-        elif DEBUG:
-            print "Agent: State Found"
+        key = self.state_key(state)
+        if self.learning:
+            if key not in self.Q:
+                self.Q[key] = dict()
+                self.Q[key]['forward'] = 0.0
+                self.Q[key]['left'] = 0.0
+                self.Q[key]['right'] = 0.0
+                self.Q[key][None] = 0.0
+                if DEBUG:
+                    print "Agent: Creating State"
+            elif DEBUG:
+                print "Agent: State Found"
         return
 
 
@@ -134,7 +148,11 @@ class LearningAgent(Agent):
         # Otherwise, choose an action with the highest Q-value for the current state
         # Be sure that when choosing an action with highest Q-value that you randomly select between actions that "tie".
         if self.learning:
-            action = random.choice(self.env.valid_actions)
+            eps = random.random()
+            if eps < self.epsilon:
+                action = random.choice(self.env.valid_actions)
+            else:
+                action = self.maxQ_index(state)
         else:
             action = random.choice(self.env.valid_actions)
 
@@ -152,30 +170,31 @@ class LearningAgent(Agent):
         ###########
         # When learning, implement the value iteration update rule
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
-        state_key = "%s, %s, %s, %s" % (state[0], state[1], state[2], state[3])
-        maxQ = self.get_maxQ(state)
-        stateQ = self.Q[state_key][action]
-        newQ = (reward * self.alpha) + (stateQ * (1 - self.alpha))
-        self.Q[state_key][action] = newQ
-
-        if DEBUG:
-            print "===================="
-            print "Learning Function:"
-            print "Waypoint: %s" % state[0]
-            print "----"
-            print "          %s" % state[1]
-            print "          __"
-            print "    %s |" % state[2]
-            print "          __"
-            print "          %s" % state[3]
-            print "----"
-            print "Action: %s" % action
-            print "===================="
-            print "Learning Reward: %f" % reward
-            print "Max Q for action: %s" % maxQ
-            print "Old Q for state: %f" % stateQ
-            print "New Q for state/action: %f" % newQ
-            print "===================="
+        if self.learning:
+            key = self.state_key(state)
+            maxQ = self.get_maxQ(state)
+            stateQ = self.Q[key][action]
+            newQ = (reward * self.alpha) + (stateQ * (1 - self.alpha))
+            self.Q[key][action] = newQ
+    
+            if DEBUG:
+                print "===================="
+                print "Learning Function:"
+                print "Waypoint: %s" % state[0]
+                print "----"
+                print "          %s" % state[1]
+                print "          __"
+                print "    %s |" % state[2]
+                print "          __"
+                print "          %s" % state[3]
+                print "----"
+                print "Action: %s" % action
+                print "===================="
+                print "Learning Reward: %f" % reward
+                print "Max Q for action: %s" % maxQ
+                print "Old Q for state: %f" % stateQ
+                print "New Q for state/action: %f" % newQ
+                print "===================="
 
         return
 
