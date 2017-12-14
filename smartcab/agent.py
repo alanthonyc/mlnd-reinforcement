@@ -1,12 +1,19 @@
-import random
-import math
-import operator
+import random, sys, math, operator, argparse, os, ast
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
+import pandas as pd
 
 VERBOSE = False
-DEBUG = True
+DEBUG = False
+DEFAULT_ALPHA = 0.03
+DISPLAY = False
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("epsilon", nargs="?", default="empty_string")
+    parser.add_argument("loops", type=int, nargs="?", default=1)
+    return parser.parse_args()
 
 class LearningAgent(Agent):
     """ An agent that learns to drive in the Smartcab world.
@@ -28,6 +35,7 @@ class LearningAgent(Agent):
         # TODO  1
         ###########
         # Set any additional class parameters as needed
+        self.trials = 0
 
 
     def reset(self, destination=None, testing=False):
@@ -45,6 +53,7 @@ class LearningAgent(Agent):
         # Update epsilon using a decay function of your choice
         # Update additional class parameters as needed
         # If 'testing' is True, set epsilon and alpha to 0
+        self.trials += 1
         if testing:
             self.epsilon = 0
             self.alpha = 0
@@ -203,14 +212,79 @@ class LearningAgent(Agent):
         """ The update function is called when a time step is completed in the 
             environment for a given trial. This function will build the agent
             state, choose an action, receive a reward, and learn if enabled. """
-
+          
         state = self.build_state()          # Get current state
         self.createQ(state)                 # Create 'state' in Q-table
         action = self.choose_action(state)  # Choose an action
         reward = self.env.act(self, action) # Receive a reward
         self.learn(state, action, reward)   # Q-learn
         return
+
+class LearningAgentEpsilon1(LearningAgent):
+    def reset(self, destination=None, testing=False):
+        """ 
+        Subclass of `LearningAgent` with epsilon function:
         
+            `self.alpha ** self.trials`
+        """
+        self.planner.route_to(destination)
+        self.trials += 1
+        if testing:
+            self.epsilon = 0
+            self.alpha = 0
+        else:
+            self.epsilon = self.alpha ** self.trials
+        return None
+
+class LearningAgentEpsilon2(LearningAgent):
+    def reset(self, destination=None, testing=False):
+        """ 
+        Subclass of `LearningAgent` with epsilon function:
+         
+            `1 / self.trials^2`
+        """
+        self.planner.route_to(destination)
+        self.trials += 1
+        if testing:
+            self.epsilon = 0
+            self.alpha = 0
+        else:
+            self.epsilon = 1 / (self.trials * self.trials)
+        return None
+
+class LearningAgentEpsilon3(LearningAgent):
+    def reset(self, destination=None, testing=False):
+        """ 
+        Subclass of `LearningAgent` with epsilon function:
+        
+            `e ** -(self.alpha * self.trials)`
+        """
+        self.planner.route_to(destination)
+        self.trials += 1
+        if testing:
+            self.epsilon = 0
+            self.alpha = 0
+        else:
+            e = 2.7182818284
+            self.epsilon = e ** (-1 * (self.alpha * self.trials))
+        return None
+
+class LearningAgentEpsilon4(LearningAgent):
+    def reset(self, destination=None, testing=False):
+        """ 
+        Subclass of `LearningAgent` with epsilon function:
+        
+            `e ** -(self.alpha * self.trials)`
+        """
+        self.planner.route_to(destination)
+        self.trials += 1
+        if testing:
+            self.epsilon = 0
+            self.alpha = 0
+        else:
+            e = 2.7182818284
+            self.epsilon = e ** (-1 * (self.alpha * self.trials))
+        return None
 
 def run():
     """ Driving function for running the simulation. 
@@ -230,7 +304,7 @@ def run():
     #   learning   - set to True to force the driving agent to use Q-learning
     #    * epsilon - continuous value for the exploration factor, default is 1
     #    * alpha   - continuous value for the learning rate, default is 0.5
-    agent = env.create_agent(LearningAgent, learning=True)
+    agent = env.create_agent(LearningAgent, learning=True, alpha=DEFAULT_ALPHA)
     
     ##############
     # Follow the driving agent
@@ -245,7 +319,7 @@ def run():
     #   display      - set to False to disable the GUI if PyGame is enabled
     #   log_metrics  - set to True to log trial and simulation results to /logs
     #   optimized    - set to True to change the default log file name
-    sim = Simulator(env, update_delay=0.001, log_metrics=True)
+    sim = Simulator(env, update_delay=0.01, log_metrics=True, optimized=True, display=DISPLAY)
     
     ##############
     # Run the simulator
@@ -254,6 +328,113 @@ def run():
     #   n_test     - discrete number of testing trials to perform, default is 0
     sim.run(n_test=10)
 
+def calculate_safety(data):
+	""" Calculates the safety rating of the smartcab during testing. """
+
+	good_ratio = data['good_actions'].sum() * 1.0 / \
+	(data['initial_deadline'] - data['final_deadline']).sum()
+
+	if good_ratio == 1: # Perfect driving
+		return ("A+", "green")
+	else: # Imperfect driving
+		if data['actions'].apply(lambda x: ast.literal_eval(x)[4]).sum() > 0: # Major accident
+			return ("F", "red")
+		elif data['actions'].apply(lambda x: ast.literal_eval(x)[3]).sum() > 0: # Minor accident
+			return ("D", "#EEC700")
+		elif data['actions'].apply(lambda x: ast.literal_eval(x)[2]).sum() > 0: # Major violation
+			return ("C", "#EEC700")
+		else: # Minor violation
+			minor = data['actions'].apply(lambda x: ast.literal_eval(x)[1]).sum()
+			if minor >= len(data)/2: # Minor violation in at least half of the trials
+				return ("B", "green")
+			else:
+				return ("A", "green")
+
+
+def calculate_reliability(data):
+	""" Calculates the reliability rating of the smartcab during testing. """
+
+	success_ratio = data['success'].sum() * 1.0 / len(data)
+
+	if success_ratio == 1: # Always meets deadline
+		return ("A+", "green")
+	else:
+		if success_ratio >= 0.90:
+			return ("A", "green")
+		elif success_ratio >= 0.80:
+			return ("B", "green")
+		elif success_ratio >= 0.70:
+			return ("C", "#EEC700")
+		elif success_ratio >= 0.60:
+			return ("D", "#EEC700")
+		else:
+			return ("F", "red")
+
+
+def run(epsilon_function=0, alpha=0.5):
+    """ 
+    Run a simulation with customized parameters.
+    """
+    env = Environment(verbose=VERBOSE)
+    learning_agent = LearningAgent
+    if epsilon_function == 1:
+        learning_agent = LearningAgentEpsilon1
+    elif epsilon_function == 2:
+        learning_agent = LearningAgentEpsilon2
+    elif epsilon_function == 3:
+        learning_agent = LearningAgentEpsilon3
+    
+    agent = env.create_agent(learning_agent, learning=True, alpha=alpha)
+    env.set_primary_agent(agent, enforce_deadline=True)
+    sim = Simulator(env, update_delay=0.01, log_metrics=True, optimized=True, display=DISPLAY)
+    sim.run(n_test=10)
+
+
+def record_results(grade_log, loop, epsilon, alpha):
+    """
+    Write results of simulation to grade log file.
+    """
+    csv = "sim_improved-learning.csv"
+    data = pd.read_csv(os.path.join("logs", csv))
+    data['good_actions'] = data['actions'].apply(lambda x: ast.literal_eval(x)[0])
+    testing_data = data[data['testing']==True]
+
+    reliability, color = calculate_reliability(testing_data)
+    safety, color = calculate_safety(testing_data)
+
+    grade_log.write("%s, " % loop)
+    grade_log.write("%s, " % epsilon)
+    grade_log.write("%s, " % alpha)
+    grade_log.write("%s, " % safety)
+    grade_log.write("%s\n" % reliability)
+
+
+def run_control(args):
+    """
+    Set up and execute multiple simulation runs.
+    """
+    grade_log = open("logs/grade_log.csv", 'w')
+    grade_log.write("Loop, Epsilon, Alpha, Safety, Reliability\n")
+
+    epsilon_function = int(args.epsilon)
+    loops = args.loops
+    alphas = [0.03, 0.5, 0.95]
+    for alpha in alphas:
+        for loop in range(1,loops+1):
+            print "Running Loop %i: epsilon=%s / alpha=%f" % (loop, args.epsilon, alpha)
+            run(epsilon_function, alpha)
+            record_results(grade_log, loop, args.epsilon, alpha)
+
 
 if __name__ == '__main__':
-    run()
+    """
+    If no arguments, run as originally designed. Otherwise, run multiple test loops
+    with customized parameters.
+    """
+    args = parse_arguments()
+    if args.epsilon == 'empty_string':
+        print "Default Simulation"
+        run()
+    else:
+        print "Customized Simulations"
+        run_control(args)
