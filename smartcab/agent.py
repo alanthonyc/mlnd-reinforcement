@@ -274,7 +274,7 @@ class LearningAgentEpsilon4(LearningAgent):
         """ 
         Subclass of `LearningAgent` with epsilon function:
         
-            `e ** -(self.alpha * self.trials)`
+            `cos(a * trials)`
         """
         self.planner.route_to(destination)
         self.trials += 1
@@ -282,8 +282,8 @@ class LearningAgentEpsilon4(LearningAgent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            e = 2.7182818284
-            self.epsilon = e ** (-1 * (self.alpha * self.trials))
+            import math
+            self.epsilon = math.cos(self.alpha * self.trials)
         return None
 
 def run():
@@ -383,6 +383,8 @@ def run(epsilon_function=0, alpha=0.5):
         learning_agent = LearningAgentEpsilon2
     elif epsilon_function == 3:
         learning_agent = LearningAgentEpsilon3
+    elif epsilon_function == 4:
+        learning_agent = LearningAgentEpsilon4
     
     agent = env.create_agent(learning_agent, learning=True, alpha=alpha)
     env.set_primary_agent(agent, enforce_deadline=True)
