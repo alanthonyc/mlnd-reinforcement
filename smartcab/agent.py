@@ -36,6 +36,7 @@ class LearningAgent(Agent):
         ###########
         # Set any additional class parameters as needed
         self.trials = 0
+        self.epsilonA = 0.5
 
 
     def reset(self, destination=None, testing=False):
@@ -233,7 +234,7 @@ class LearningAgentEpsilon1(LearningAgent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            self.epsilon = self.alpha ** self.trials
+            self.epsilon = self.epsilonA ** self.trials
         return None
 
 class LearningAgentEpsilon2(LearningAgent):
@@ -266,7 +267,7 @@ class LearningAgentEpsilon3(LearningAgent):
             self.alpha = 0
         else:
             e = 2.7182818284
-            self.epsilon = e ** (-1 * (self.alpha * self.trials))
+            self.epsilon = e ** (-1 * (self.epsilonA * self.trials))
         return None
 
 class LearningAgentEpsilon4(LearningAgent):
@@ -282,8 +283,7 @@ class LearningAgentEpsilon4(LearningAgent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            import math
-            self.epsilon = math.cos(self.alpha * self.trials)
+            self.epsilon = math.cos(self.epsilonA * self.trials)
         return None
 
 def run():
@@ -371,7 +371,27 @@ def calculate_reliability(data):
 			return ("F", "red")
 
 
-def run(epsilon_function=0, alpha=0.5):
+def record_results(grade_log, loop, epsilon, epsilonA, alpha):
+    """
+    Write results of simulation to grade log file.
+    """
+    csv = "sim_improved-learning.csv"
+    data = pd.read_csv(os.path.join("logs", csv))
+    data['good_actions'] = data['actions'].apply(lambda x: ast.literal_eval(x)[0])
+    testing_data = data[data['testing']==True]
+
+    reliability, color = calculate_reliability(testing_data)
+    safety, color = calculate_safety(testing_data)
+
+    grade_log.write("%s, " % loop)
+    grade_log.write("%s, " % epsilon)
+    grade_log.write("%s, " % epsilonA)
+    grade_log.write("%s, " % alpha)
+    grade_log.write("%s, " % safety)
+    grade_log.write("%s\n" % reliability)
+
+
+def run(epsilon_function=0, epsilonA=0.5, alpha=0.5):
     """ 
     Run a simulation with customized parameters.
     """
@@ -387,28 +407,11 @@ def run(epsilon_function=0, alpha=0.5):
         learning_agent = LearningAgentEpsilon4
     
     agent = env.create_agent(learning_agent, learning=True, alpha=alpha)
+    agent.epsilonA = epsilonA
     env.set_primary_agent(agent, enforce_deadline=True)
     sim = Simulator(env, update_delay=0.01, log_metrics=True, optimized=True, display=DISPLAY)
     sim.run(n_test=10)
-
-
-def record_results(grade_log, loop, epsilon, alpha):
-    """
-    Write results of simulation to grade log file.
-    """
-    csv = "sim_improved-learning.csv"
-    data = pd.read_csv(os.path.join("logs", csv))
-    data['good_actions'] = data['actions'].apply(lambda x: ast.literal_eval(x)[0])
-    testing_data = data[data['testing']==True]
-
-    reliability, color = calculate_reliability(testing_data)
-    safety, color = calculate_safety(testing_data)
-
-    grade_log.write("%s, " % loop)
-    grade_log.write("%s, " % epsilon)
-    grade_log.write("%s, " % alpha)
-    grade_log.write("%s, " % safety)
-    grade_log.write("%s\n" % reliability)
+    return epsilon_function, agent.epsilonA
 
 
 def run_control(args):
@@ -416,16 +419,18 @@ def run_control(args):
     Set up and execute multiple simulation runs.
     """
     grade_log = open("logs/grade_log.csv", 'w')
-    grade_log.write("Loop, Epsilon, Alpha, Safety, Reliability\n")
+    grade_log.write("Loop, Epsilon, (A), Alpha, Safety, Reliability\n")
 
     epsilon_function = int(args.epsilon)
     loops = args.loops
     alphas = [0.03, 0.5, 0.95]
+    epsilonAs = [0.05, 0.5, 0.95]
     for alpha in alphas:
-        for loop in range(1,loops+1):
-            print "Running Loop %i: epsilon=%s / alpha=%f" % (loop, args.epsilon, alpha)
-            run(epsilon_function, alpha)
-            record_results(grade_log, loop, args.epsilon, alpha)
+        for epsilonA in epsilonAs:
+            for loop in range(1,loops+1):
+                print "Running Loop %i: epsilon=%s (%f) / alpha=%f" % (loop, args.epsilon, epsilonA,  alpha)
+                eps, epsA = run(epsilon_function, epsilonA, alpha)
+                record_results(grade_log, loop, eps, epsA, alpha)
 
 
 if __name__ == '__main__':
