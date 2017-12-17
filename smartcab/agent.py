@@ -8,7 +8,7 @@ VERBOSE = False
 DEBUG = False
 DEFAULT_ALPHA = 0.5
 DEFAULT_EPSILON_A = 0.05
-DISPLAY = True
+DISPLAY = False
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
