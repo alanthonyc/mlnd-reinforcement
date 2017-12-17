@@ -7,8 +7,8 @@ import pandas as pd
 VERBOSE = False
 DEBUG = False
 DEFAULT_ALPHA = 0.5
-DEFAULT_EPSILON_A = 0.05
-DISPLAY = False
+DEFAULT_EPSILON_A = 0.95
+DISPLAY = True
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -60,8 +60,7 @@ class LearningAgent(Agent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            e = 2.7182818284
-            self.epsilon = e ** (-1 * (DEFAULT_EPSILON_A * self.trials))
+            self.epsilon = self.epsilonA ** self.trials
 
         return None
 
@@ -410,7 +409,7 @@ def record_results(grade_log, loop, epsilon, epsilonA, alpha):
     grade_log.write("%s\n" % reliability)
 
 
-def run(epsilon_function=0, epsilonA=0.5, alpha=0.5):
+def run_epsilon(epsilon_function=0, epsilonA=0.5, alpha=0.5):
     """ 
     Run a simulation with customized parameters.
     """
@@ -448,7 +447,7 @@ def run_control(args):
         for epsilonA in epsilonAs:
             for loop in range(1,loops+1):
                 print "Running Loop %i: epsilon=%s (%f) / alpha=%f" % (loop, args.epsilon, epsilonA,  alpha)
-                eps, epsA = run(epsilon_function, epsilonA, alpha)
+                eps, epsA = run_epsilon(epsilon_function, epsilonA, alpha)
                 record_results(grade_log, loop, eps, epsA, alpha)
 
 
