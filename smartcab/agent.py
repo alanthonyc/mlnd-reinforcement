@@ -6,8 +6,9 @@ import pandas as pd
 
 VERBOSE = False
 DEBUG = False
-DEFAULT_ALPHA = 0.03
-DISPLAY = False
+DEFAULT_ALPHA = 0.5
+DEFAULT_EPSILON_A = 0.05
+DISPLAY = True
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -36,7 +37,7 @@ class LearningAgent(Agent):
         ###########
         # Set any additional class parameters as needed
         self.trials = 0
-        self.epsilonA = 0.5
+        self.epsilonA = DEFAULT_EPSILON_A
 
 
     def reset(self, destination=None, testing=False):
@@ -59,7 +60,8 @@ class LearningAgent(Agent):
             self.epsilon = 0
             self.alpha = 0
         else:
-            self.epsilon = self.epsilon - 0.05
+            e = 2.7182818284
+            self.epsilon = e ** (-1 * (DEFAULT_EPSILON_A * self.trials))
 
         return None
 
@@ -220,6 +222,23 @@ class LearningAgent(Agent):
         reward = self.env.act(self, action) # Receive a reward
         self.learn(state, action, reward)   # Q-learn
         return
+
+class LearningAgentEpsilon0(LearningAgent):
+    def reset(self, destination=None, testing=False):
+        """ 
+        Subclass of `LearningAgent` with epsilon function:
+        
+            `self.alpha ** self.trials`
+        """
+        self.planner.route_to(destination)
+        self.trials += 1
+        if testing:
+            self.epsilon = 0
+            self.alpha = 0
+        else:
+            self.epsilon = self.epsilon - 0.05
+        return None
+
 
 class LearningAgentEpsilon1(LearningAgent):
     def reset(self, destination=None, testing=False):
@@ -396,7 +415,7 @@ def run(epsilon_function=0, epsilonA=0.5, alpha=0.5):
     Run a simulation with customized parameters.
     """
     env = Environment(verbose=VERBOSE)
-    learning_agent = LearningAgent
+    learning_agent = LearningAgentEpsilon0
     if epsilon_function == 1:
         learning_agent = LearningAgentEpsilon1
     elif epsilon_function == 2:
